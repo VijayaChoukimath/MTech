@@ -4,7 +4,7 @@ import plotly.express as px
 
 st.title("Storage Format Benchmark Dashboard")
 
-df = pd.read_csv("results/benchmark_results.csv")
+df = pd.read_csv("data/output/benchmark_results.csv")
 
 st.subheader("Benchmark Results")
 st.dataframe(df)

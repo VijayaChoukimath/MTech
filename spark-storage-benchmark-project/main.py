@@ -1,14 +1,10 @@
 import pandas as pd
+import time
+import os
 
-from scripts.spark_session import create_spark
-from scripts.data_loader import load_data
-from scripts.benchmark_filter import run_filter_test
-from scripts.benchmark_aggregation import run_aggregation_test
-from scripts.storage_size import get_storage_size
+os.environ['TZDIR'] = r'C:\Users\Vijaya Choukimath\Desktop\MTech\Projects\Module3\.venv\Lib\site-packages\tzdata\zoneinfo'
 
 from utils.config import *
-
-spark = create_spark()
 
 formats = {
     "Parquet":("parquet",PARQUET_PATH),
@@ -19,10 +15,29 @@ formats = {
 results = []
 
 for name,(fmt,path) in formats.items():
-    df = load_data(spark,fmt,path)
-    filter_time = run_filter_test(df)
-    agg_time = run_aggregation_test(df)
-    size = get_storage_size(path)
+    if fmt == "parquet":
+        df = pd.read_parquet(os.path.join(path, "data.parquet"))
+    elif fmt == "orc":
+        df = pd.read_orc(os.path.join(path, "data.orc"))
+    elif fmt == "avro":
+        from fastavro import reader
+        with open(os.path.join(path, "data.avro"), 'rb') as f:
+            avro_reader = reader(f)
+            records = list(avro_reader)
+        df = pd.DataFrame(records)
+
+    # Filter test
+    start = time.time()
+    filtered = df[df['popularity'] > 50]
+    filter_time = time.time() - start
+
+    # Aggregation test
+    start = time.time()
+    agg = df.groupby('track_genre')['popularity'].mean()
+    agg_time = time.time() - start
+
+    # Storage size
+    size = os.path.getsize(os.path.join(path, f"data.{fmt}")) / (1024 * 1024)  # MB
 
     results.append({
         "Format":name,
@@ -32,6 +47,6 @@ for name,(fmt,path) in formats.items():
     })
 
 df = pd.DataFrame(results)
-df.to_csv("results/benchmark_results.csv",index=False)
+df.to_csv("data/output/benchmark_results.csv",index=False)
 
 print(df)
